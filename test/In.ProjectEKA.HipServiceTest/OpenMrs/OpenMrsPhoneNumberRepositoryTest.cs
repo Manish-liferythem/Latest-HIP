@@ -126,7 +126,7 @@ namespace In.ProjectEKA.HipServiceTest.OpenMrs
                     },
                     {
                         ""uuid"": ""df4af84e-bc10-4620-b8f0-df1a355cba55"",
-                        ""display"": ""phoneNumber = +91-9999999988"",
+                        ""display"": ""primaryContact = +91-9999999988"",
                         ""links"": [
                             {
                                 ""rel"": ""self"",
@@ -136,7 +136,7 @@ namespace In.ProjectEKA.HipServiceTest.OpenMrs
                     },
                     {
                         ""uuid"": ""df4af84e-bc10-4620-b8f0-df1a355cba54"",
-                        ""display"": ""alternatePhoneNumber = +91-9999999999"",
+                        ""display"": ""alternatePrimaryContact = +91-9999999999"",
                         ""links"": [
                             {
                                 ""rel"": ""self"",
