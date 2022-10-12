@@ -3,6 +3,7 @@ namespace In.ProjectEKA.HipService.Common
     public static class Constants
     {
         public const string CURRENT_VERSION = "v0.5";
+        public const string UPDATED_VERSION = "v1.0";
         public const string PATH_SESSIONS = CURRENT_VERSION + "/sessions";
         public const string PATH_CARE_CONTEXTS_DISCOVER = CURRENT_VERSION + "/care-contexts/discover";
         public const string PATH_CONSENTS_HIP = CURRENT_VERSION + "/consents/hip/notify";
@@ -65,8 +66,8 @@ namespace In.ProjectEKA.HipService.Common
         public const string DEEPLINK_URL = "https://link.to.health.records";
         public const string PATH_PATIENT_NOTIFY = "/" + CURRENT_VERSION + "/patients/status/notify";
         public const string PATH_PATIENT_ON_NOTIFY = "/" + CURRENT_VERSION + "/patients/status/on-notify";
-        public const string PATH_PROFILE_SHARE = "/" + CURRENT_VERSION + "/patients/profile/share";
-        public const string PATH_PROFILE_ON_SHARE = "/" + CURRENT_VERSION + "/patients/profile/on-share";
+        public const string PATH_PROFILE_SHARE = "/" + UPDATED_VERSION + "/patients/profile/share";
+        public const string PATH_PROFILE_ON_SHARE = "/" + UPDATED_VERSION + "/patients/profile/on-share";
         public const string PATH_PROFILE_FETCH = "/" + CURRENT_VERSION + "/patients/profile/fetch";
     }
 }
