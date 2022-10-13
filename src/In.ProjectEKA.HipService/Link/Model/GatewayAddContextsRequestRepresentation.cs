@@ -5,15 +5,15 @@ namespace In.ProjectEKA.HipService.Link.Model
 {
     public class GatewayAddContextsRequestRepresentation
     {
-        public Guid RequestId { get; }
-        public DateTime Timestamp { get; }
-        public AddCareContextsLink Link { get; }
+        public Guid requestId { get; }
+        public DateTime timestamp { get; }
+        public AddCareContextsLink link { get; }
 
-        public GatewayAddContextsRequestRepresentation(Guid requestId, DateTime timestamp, AddCareContextsLink link)
+        public GatewayAddContextsRequestRepresentation(Guid RequestId, DateTime Timestamp, AddCareContextsLink Link)
         {
-            RequestId = requestId;
-            Timestamp = timestamp;
-            Link = link;
+            requestId = RequestId;
+            timestamp = Timestamp;
+            link = Link;
         }
 
         public string dump(Object o)

@@ -5,15 +5,15 @@ namespace In.ProjectEKA.HipService.Link.Model
 {
     public class AddCareContextsPatient
     {
-        public string ReferenceNumber { get; }
-        public string Display { get; }
-        public List<CareContextRepresentation> CareContexts { get; }
+        public string referenceNumber { get; }
+        public string display { get; }
+        public List<CareContextRepresentation> careContexts { get; }
 
-        public AddCareContextsPatient(string referenceNumber, string display, List<CareContextRepresentation> careContexts)
+        public AddCareContextsPatient(string ReferenceNumber, string Display, List<CareContextRepresentation> CareContexts)
         {
-            ReferenceNumber = referenceNumber;
-            Display = display;
-            CareContexts = careContexts;
+            referenceNumber = ReferenceNumber;
+            display = Display;
+            careContexts = CareContexts;
         }
     }
 }

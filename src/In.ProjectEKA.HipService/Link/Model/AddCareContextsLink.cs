@@ -2,13 +2,13 @@ namespace In.ProjectEKA.HipService.Link.Model
 {
     public class AddCareContextsLink
     {
-        public string AccessToken { get; }
-        public AddCareContextsPatient Patient { get; }
+        public string accessToken { get; }
+        public AddCareContextsPatient patient { get; }
 
-        public AddCareContextsLink(string accessToken, AddCareContextsPatient addCareContextsPatient)
+        public AddCareContextsLink(string AccessToken, AddCareContextsPatient addCareContextsPatient)
         {
-            AccessToken = accessToken;
-            Patient = addCareContextsPatient;
+            accessToken = AccessToken;
+            patient = addCareContextsPatient;
         }
     }   
 }

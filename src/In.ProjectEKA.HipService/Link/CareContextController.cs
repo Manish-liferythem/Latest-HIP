@@ -47,7 +47,7 @@ namespace In.ProjectEKA.HipService.Link
                await careContextService.AddContextsResponse(addContextsRequest,cmSuffix);
             if (error != null)
                 return StatusCode(StatusCodes.Status400BadRequest, error);
-            Guid requestId = gatewayAddContextsRequestRepresentation.RequestId;
+            Guid requestId = gatewayAddContextsRequestRepresentation.requestId;
             try
             {
                 logger.Log(LogLevel.Information,
@@ -58,9 +58,11 @@ namespace In.ProjectEKA.HipService.Link
                                                                      $" correlationId: {{correlationId}}, " +
                                                                      $"requestId: {{requestId}}",
                     cmSuffix, correlationId, requestId);
+                logger.Log(LogLevel.Information,PATH_ADD_PATIENT_CONTEXTS + " " + gatewayAddContextsRequestRepresentation);
                 await gatewayClient.SendDataToGateway(PATH_ADD_PATIENT_CONTEXTS,
                     gatewayAddContextsRequestRepresentation,
                     cmSuffix, correlationId);
+                logger.Log(LogLevel.Information,"after sent to gateway");
                 return Accepted();
             }
             catch (Exception exception)
