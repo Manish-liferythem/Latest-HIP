@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - BAH-2459
 jobs:
   build:
     runs-on: ubuntu-latest
