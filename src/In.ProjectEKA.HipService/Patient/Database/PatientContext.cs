@@ -18,6 +18,7 @@ namespace In.ProjectEKA.HipService.Patient.Database
         {
             modelBuilder.Entity<PatientQueue>(builder =>
             {
+                
                 builder.HasKey(p => p.RequestId);
                 builder.Property(p => p.RequestId);
                 builder.Property(p => p.DateTimeStamp).HasConversion(
