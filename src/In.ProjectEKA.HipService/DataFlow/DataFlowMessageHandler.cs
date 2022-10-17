@@ -1,4 +1,5 @@
 using In.ProjectEKA.HipLibrary.Patient.Model;
+using Serilog;
 
 namespace In.ProjectEKA.HipService.DataFlow
 {
@@ -24,9 +25,12 @@ namespace In.ProjectEKA.HipService.DataFlow
         public async Task HandleDataFlowMessage(TraceableDataRequest dataRequest)
         {
             var sentKeyMaterial = dataRequest.KeyMaterial;
+            Log.Information("---------- HandleDataFlowMessage sentKeyMaterial : " + sentKeyMaterial);
             var data = await collectHipService.CollectData(dataRequest).ConfigureAwait(false);
+            Log.Information("---------- HandleDataFlowMessage data : " + data);
             var encryptedEntries = data.FlatMap(entries =>
                 dataEntryFactory.Process(entries, sentKeyMaterial, dataRequest.TransactionId));
+            Log.Information("---------- HandleDataFlowMessage encryptedEntries : " + encryptedEntries);
             encryptedEntries.MatchSome(async entries =>
                 await dataFlowClient.SendDataToHiu(dataRequest,
                     entries.Entries,

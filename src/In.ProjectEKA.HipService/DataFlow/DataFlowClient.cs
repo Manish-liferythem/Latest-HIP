@@ -30,6 +30,8 @@ namespace In.ProjectEKA.HipService.DataFlow
             IEnumerable<Entry> data,
             KeyMaterial keyMaterial)
         {
+            Log.Information("---------- SendDataToHiu dataRequest : " + dataRequest.ToString());
+            Log.Information("---------- SendDataToHiu data : " + data);
             await PostTo(dataRequest.ConsentId,
                 dataRequest.DataPushUrl,
                 dataRequest.CareContexts,
