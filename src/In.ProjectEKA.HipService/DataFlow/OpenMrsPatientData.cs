@@ -79,8 +79,6 @@ namespace In.ProjectEKA.HipService.DataFlow
 
             Log.Information("VISIT endpoint being called: " + pathForVisit);
             var response = await openMrsClient.GetAsync(pathForVisit);
-            Log.Information("---------- After VISIT endpoint being called: " + response);
-            Log.Information("---------- response content -------- : " + response.Content);
             if (response == null) return new List<string>();
             var content = await response.Content.ReadAsStringAsync();
             var jsonDoc = JsonDocument.Parse(content);

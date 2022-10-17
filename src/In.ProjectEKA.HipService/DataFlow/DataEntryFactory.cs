@@ -1,4 +1,3 @@
-using Serilog;
 namespace In.ProjectEKA.HipService.DataFlow
 {
     using System;
@@ -43,8 +42,6 @@ namespace In.ProjectEKA.HipService.DataFlow
         public virtual Option<EncryptedEntries> Process(Entries entries,
             HipLibrary.Patient.Model.KeyMaterial dataRequestKeyMaterial, string transactionId)
         {
-            Log.Information("---------- dataRequestKeyMaterial : " + dataRequestKeyMaterial);
-            Log.Information("---------- transactionId : " + transactionId);
             var keyPair = EncryptorHelper.GenerateKeyPair(dataRequestKeyMaterial.Curve,
                 dataRequestKeyMaterial.CryptoAlg);
             var randomKey = EncryptorHelper.GenerateRandomKey();
@@ -53,18 +50,13 @@ namespace In.ProjectEKA.HipService.DataFlow
             var careBundles = entries.CareBundles;
             foreach (var careBundle in careBundles)
             {
-                Log.Information("---------- careBundle : " + careBundle);
                 var encryptData =
                     encryptor.EncryptData(dataRequestKeyMaterial,
                         keyPair,
                         Serializer.SerializeToString(careBundle.BundleForThisCcr), randomKey);
                 if (!encryptData.HasValue)
-                {
-                    Log.Information("---------- no value for  encryptData: ");
                     return Option.None<EncryptedEntries>();
-                }
-                    
-                
+
                 encryptData.MatchSome(content =>
                 {
                     var entry = IsLinkable(content)
@@ -74,7 +66,7 @@ namespace In.ProjectEKA.HipService.DataFlow
                     processedEntries.Add(entry);
                 });
             }
-            Log.Information("---------- processedEntries : " + processedEntries);
+
             var keyStructure = new KeyStructure(DateTime.Now.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 dataRequestKeyMaterial.DhPublicKey.Parameters, EncryptorHelper.GetPublicKey(keyPair));
             var keyMaterial = new KeyMaterial(dataRequestKeyMaterial.CryptoAlg,
