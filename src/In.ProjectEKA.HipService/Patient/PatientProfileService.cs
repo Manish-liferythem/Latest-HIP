@@ -63,8 +63,9 @@ namespace In.ProjectEKA.HipService.Patient
             try
             {
                 var patientQueueRequest = patientContext.PatientQueue.ToList().FindAll(
-                    patient => DateTime.Compare(DateTime.Now.AddHours(-1),DateTime.Parse(patient.DateTimeStamp)) < _openMrsConfiguration.PatientQueueTimeLimit
+                    patient => DateTime.Now.Subtract (DateTime.Parse(patient.DateTimeStamp)).TotalMinutes < _openMrsConfiguration.PatientQueueTimeLimit
                 );
+
                 return patientQueueRequest;
             }
             catch (Exception exception)
