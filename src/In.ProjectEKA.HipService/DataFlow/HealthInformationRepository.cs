@@ -1,3 +1,5 @@
+using Serilog;
+
 namespace In.ProjectEKA.HipService.DataFlow
 {
     using System.Threading.Tasks;
@@ -17,6 +19,11 @@ namespace In.ProjectEKA.HipService.DataFlow
 
         public void Add(HealthInformation healthInformation)
         {
+            Log.Information("healthInformation InformationId in add -------- "+ healthInformation.InformationId);
+            Log.Information("healthInformation Token in DateCreated -------- "+ healthInformation.DateCreated);
+            Log.Information("healthInformation Token in add -------- "+ healthInformation.Token);
+            Log.Information("healthInformation Token in data link -------- "+ healthInformation.Data.Link);
+            Log.Information("healthInformation Token in data content -------- "+ healthInformation.Data.Content);
             dataFlowContext.HealthInformation.Add(healthInformation);
             dataFlowContext.SaveChanges();
         }

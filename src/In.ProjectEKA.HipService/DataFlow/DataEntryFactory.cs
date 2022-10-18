@@ -1,3 +1,6 @@
+using Elastic.CommonSchema;
+using Log = Serilog.Log;
+
 namespace In.ProjectEKA.HipService.DataFlow
 {
     using System;
@@ -59,6 +62,8 @@ namespace In.ProjectEKA.HipService.DataFlow
 
                 encryptData.MatchSome(content =>
                 {
+                    // Log.Information("In encrypt --------- content ----- "+ content);
+                    Log.Information("In encrypt --------- IsLinkable(content) ----- "+ IsLinkable(content));
                     var entry = IsLinkable(content)
                         ? StoreComponentAndGetLink(ComponentEntry(content, careBundle.CareContextReference),
                             careBundle.CareContextReference)
@@ -77,6 +82,7 @@ namespace In.ProjectEKA.HipService.DataFlow
 
         private Entry StoreComponentAndGetLink(Entry componentEntry, string careContextReference)
         {
+            Log.Information("StoreComponentAndGetLink careContextReference -------- "+ careContextReference);
             var linkId = Guid.NewGuid().ToString();
             var token = Guid.NewGuid().ToString();
             var linkEntry = LinkEntry(linkId, token, careContextReference);
@@ -92,6 +98,7 @@ namespace In.ProjectEKA.HipService.DataFlow
         private Entry LinkEntry(string linkId, string token, string careContextReference)
         {
             var link = $"{hipConfiguration.Value.Url}/health-information/{linkId}?token={token}";
+            Log.Information("LinkEntry link -------- "+ link);
             return EntryWith(null, link, careContextReference);
         }
 
@@ -103,6 +110,7 @@ namespace In.ProjectEKA.HipService.DataFlow
         private bool IsLinkable(string serializedBundle)
         {
             var byteCount = Encoding.Unicode.GetByteCount(serializedBundle);
+            Log.Information("byteCount -------- "+ byteCount);
             return byteCount >= DataSizeLimitInBytes();
         }
 
