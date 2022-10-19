@@ -82,7 +82,7 @@ namespace In.ProjectEKA.HipServiceTest.Patient
                 Guid.NewGuid().ToString(),
                 DateTime.Now.ToUniversalTime(),
                 new ProfileShareAcknowledgement("test@sbx",
-                    Status.SUCCESS.ToString()), null,
+                    Status.SUCCESS.ToString(),"1"), null,
                 new Resp(requestId));
             _gatewayClient.Setup(
                     client =>
@@ -113,7 +113,7 @@ namespace In.ProjectEKA.HipServiceTest.Patient
                 Guid.NewGuid().ToString(),
                 DateTime.Now.ToUniversalTime(),
                 new ProfileShareAcknowledgement("test@sbx",
-                    Status.SUCCESS.ToString()), null,
+                    Status.SUCCESS.ToString(),"1"), null,
                 new Resp(requestId));
             _gatewayClient.Setup(
                     client =>

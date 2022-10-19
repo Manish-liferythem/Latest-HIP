@@ -34,7 +34,12 @@ namespace In.ProjectEKA.HipService.Migrations
                 
                 b.Property<string>("Profile")
                     .HasColumnType("text");
-                
+
+                b.Property<int>("TokenNumber")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("integer")
+                    .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+
                 b.HasKey("RequestId");
 
                 b.ToTable("PatientQueue");

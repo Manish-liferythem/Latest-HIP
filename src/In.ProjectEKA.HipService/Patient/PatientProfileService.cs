@@ -9,6 +9,7 @@ using In.ProjectEKA.HipService.OpenMrs;
 using In.ProjectEKA.HipService.Patient.Database;
 using In.ProjectEKA.HipService.Patient.Model;
 using Optional;
+using Optional.Unsafe;
 using Task = System.Threading.Tasks.Task;
 
 namespace In.ProjectEKA.HipService.Patient
@@ -25,7 +26,7 @@ namespace In.ProjectEKA.HipService.Patient
             this.patientContext = patientContext;
         }
 
-        public async Task SavePatient(ShareProfileRequest shareProfileRequest)
+        public async Task<int> SavePatient(ShareProfileRequest shareProfileRequest)
         {
             var requesId = shareProfileRequest.RequestId;
             var timeStamp = shareProfileRequest.Timestamp.ToString();
@@ -34,20 +35,21 @@ namespace In.ProjectEKA.HipService.Patient
             var response = await Save(new PatientQueue(requesId, timeStamp, patient, hipCode));
             if(response.HasValue)
                 Log.Information("Patient saved to queue");
+            return response.ValueOrDefault();
         }
 
-        private async Task<Option<PatientQueue>> Save(PatientQueue patientQueue)
+        private async Task<Option<int>> Save(PatientQueue patientQueue)
         {
             try
             {
                 await patientContext.PatientQueue.AddAsync(patientQueue).ConfigureAwait(false);
                 await patientContext.SaveChangesAsync();
-                return Option.Some(patientQueue);
+                return Option.Some(patientQueue.TokenNumber);
             }
             catch (Exception exception)
             {
                 Log.Fatal(exception, exception.StackTrace);
-                return Option.None<PatientQueue>();
+                return Option.Some(patientQueue.TokenNumber);
             }
         }
         public bool IsValidRequest(ShareProfileRequest shareProfileRequest)
@@ -61,8 +63,9 @@ namespace In.ProjectEKA.HipService.Patient
             try
             {
                 var patientQueueRequest = patientContext.PatientQueue.ToList().FindAll(
-                    patient => DateTime.Compare(DateTime.Now.AddHours(-1),DateTime.Parse(patient.DateTimeStamp)) < _openMrsConfiguration.PatientQueueTimeLimit
+                    patient => DateTime.Now.Subtract (DateTime.Parse(patient.DateTimeStamp)).TotalMinutes < _openMrsConfiguration.PatientQueueTimeLimit
                 );
+
                 return patientQueueRequest;
             }
             catch (Exception exception)

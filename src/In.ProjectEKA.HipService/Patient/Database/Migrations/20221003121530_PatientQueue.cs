@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace In.ProjectEKA.HipService.Migrations
 {
@@ -10,6 +11,9 @@ namespace In.ProjectEKA.HipService.Migrations
                 name: "PatientQueue",
                 columns: table => new
                 {
+                    TokenNumber = table.Column<int>()
+                        .Annotation("Npgsql:ValueGenerationStrategy",
+                            NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     RequestId = table.Column<string>(nullable: false),
                     DateTimeStamp = table.Column<string>(nullable: true),
                     HipCode = table.Column<string>(nullable: true),
