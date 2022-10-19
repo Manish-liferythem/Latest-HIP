@@ -23,7 +23,6 @@ namespace In.ProjectEKA.HipService.DataFlow
             Log.Information("healthInformation Token in DateCreated -------- "+ healthInformation.DateCreated);
             Log.Information("healthInformation Token in add -------- "+ healthInformation.Token);
             Log.Information("healthInformation Token in data link -------- "+ healthInformation.Data.Link);
-            Log.Information("healthInformation Token in data content -------- "+ healthInformation.Data.Content);
             dataFlowContext.HealthInformation.Add(healthInformation);
             dataFlowContext.SaveChanges();
         }

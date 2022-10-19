@@ -92,6 +92,12 @@ namespace In.ProjectEKA.HipService.DataFlow
 
         private static Entry EntryWith(string content, string link, string careContextReference)
         {
+            Log.Information("EntryWith careContextReference -------- "+ careContextReference);
+            Log.Information("EntryWith link -------- "+ link);
+            if (link != null)
+            {
+                Log.Information("EntryWith content -------- "+ content);
+            }
             return new Entry(content, FhirMediaType, "MD5", link, careContextReference);
         }
 
