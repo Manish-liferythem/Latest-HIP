@@ -1,3 +1,5 @@
+using Serilog;
+
 namespace In.ProjectEKA.HipService.Common
 {
     using System;
@@ -31,12 +33,14 @@ namespace In.ProjectEKA.HipService.Common
             {
                 Content = new StringContent(json, Encoding.UTF8, MediaTypeNames.Application.Json)
             };
+            Log.Information("TOKEN " + token + " " + HeaderNames.Authorization);
             if (token != null)
                 httpRequestMessage.Headers.Add(HeaderNames.Authorization, token);
             if (cmSuffix != null)
                 httpRequestMessage.Headers.Add("X-CM-ID", cmSuffix);
             if (correlationId != null)
                 httpRequestMessage.Headers.Add(CORRELATION_ID, correlationId);
+            Log.Information("HEADER " + httpRequestMessage.Headers?.Authorization?.Scheme + " " + httpRequestMessage.Headers?.Authorization?.Parameter);
             return httpRequestMessage;
         }
 
