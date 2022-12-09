@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using In.ProjectEKA.HipLibrary.Patient.Model;
-using In.ProjectEKA.HipService.Common;
+using In.ProjectEKA.HipService.Common.Model;
 using In.ProjectEKA.HipService.Logger;
 using In.ProjectEKA.HipService.OpenMrs;
 using In.ProjectEKA.HipService.Patient.Database;
@@ -25,14 +25,14 @@ namespace In.ProjectEKA.HipService.Patient
         private readonly OpenMrsConfiguration _openMrsConfiguration;
         private readonly PatientContext patientContext;
         private readonly HttpClient httpClient;
-        private readonly HipUrlHelper helper;
+        private readonly HipServiceConfiguration hipServiceConfiguration;
 
-        public PatientProfileService(OpenMrsConfiguration openMrsConfiguration, PatientContext patientContext, HttpClient httpClient, HipUrlHelper helper)
+        public PatientProfileService(OpenMrsConfiguration openMrsConfiguration, PatientContext patientContext, HttpClient httpClient, HipServiceConfiguration hipServiceConfiguration)
         {
             this._openMrsConfiguration = openMrsConfiguration;
             this.patientContext = patientContext;
             this.httpClient = httpClient;
-            this.helper = helper;
+            this.hipServiceConfiguration = hipServiceConfiguration;
         }
 
         public async Task<int> SavePatient(ShareProfileRequest shareProfileRequest)
@@ -91,7 +91,7 @@ namespace In.ProjectEKA.HipService.Patient
             var ndhmDemograhics = new NdhmDemographics(patientDemographics.HealthId, patientDemographics.Name,
                 patientDemographics.Gender,
                 dob, patientDemographics.Identifiers[0].Value);
-            var request = new HttpRequestMessage(HttpMethod.Post, helper.getHipUrl() + PATH_DEMOGRAPHICS);
+            var request = new HttpRequestMessage(HttpMethod.Post, hipServiceConfiguration.Url + PATH_DEMOGRAPHICS);
             request.Content = new StringContent(JsonConvert.SerializeObject(ndhmDemograhics), Encoding.UTF8,
                 "application/json");
             await httpClient.SendAsync(request).ConfigureAwait(false);

@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Optional.Collections;
+using Serilog;
 using static In.ProjectEKA.HipService.UserAuth.UserAuthMap;
 
 namespace In.ProjectEKA.HipService.UserAuth
@@ -157,6 +159,11 @@ namespace In.ProjectEKA.HipService.UserAuth
         {
             if (Request != null)
             {
+                Log.Information("cookies count" + Request.Cookies.Count);
+                foreach (String a in Request.Cookies.Keys)
+                {
+                    Log.Information(a + "cookie" + Request.Cookies[a] + " " + Request.Cookies[a].Length);
+                }
                 if (Request.Cookies.ContainsKey(REPORTING_SESSION))
                 {
                     string sessionId = Request.Cookies[REPORTING_SESSION];

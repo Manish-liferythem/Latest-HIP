@@ -16,3 +16,4 @@ data:
   rabbit__HostName: "{{ .Values.config.RABBITMQ_HOST }}"
   rabbit__UserName: "{{ .Values.config.RABBITMQ_USERNAME }}"
   rabbit__Password: "{{ .Values.config.RABBITMQ_PASSWORD }}"
+  Hip-Service__Url:  "{{ .Values.config.HIP_SERVICE_URL }}"

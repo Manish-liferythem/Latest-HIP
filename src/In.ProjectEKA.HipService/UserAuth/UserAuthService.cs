@@ -27,13 +27,13 @@ namespace In.ProjectEKA.HipService.UserAuth
     {
         private readonly IUserAuthRepository userAuthRepository;
         private readonly HttpClient httpClient;
-        private readonly HipUrlHelper helper;
+        private readonly HipServiceConfiguration hipServiceConfiguration;
 
-        public UserAuthService(IUserAuthRepository userAuthRepository, HttpClient httpClient, HipUrlHelper helper)
+        public UserAuthService(IUserAuthRepository userAuthRepository, HttpClient httpClient, HipServiceConfiguration hipServiceConfiguration)
         {
             this.userAuthRepository = userAuthRepository;
             this.httpClient = httpClient;
-            this.helper = helper;
+            this.hipServiceConfiguration = hipServiceConfiguration;
         }
         public Tuple<GatewayFetchModesRequestRepresentation, ErrorRepresentation> FetchModeResponse(
             FetchRequest fetchRequest, BahmniConfiguration bahmniConfiguration)
@@ -182,7 +182,7 @@ namespace In.ProjectEKA.HipService.UserAuth
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, helper.getHipUrl() + PATH_HIP_AUTH_CONFIRM);
+                var request = new HttpRequestMessage(HttpMethod.Post, hipServiceConfiguration.Url + PATH_HIP_AUTH_CONFIRM);
                 var identifier = new Identifier(MOBILE, ndhmDemographics.PhoneNumber);
                 var demographics = new Demographics(ndhmDemographics.Name, ndhmDemographics.Gender,
                     ndhmDemographics.DateOfBirth, identifier);
@@ -201,7 +201,7 @@ namespace In.ProjectEKA.HipService.UserAuth
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, helper.getHipUrl() + PATH_HIP_AUTH_INIT);
+                var request = new HttpRequestMessage(HttpMethod.Post, hipServiceConfiguration.Url + PATH_HIP_AUTH_INIT);
                 var authInitRequest = new AuthInitRequest(healthId, "DEMOGRAPHICS", "KYC_AND_LINK");
                 request.Content = new StringContent(JsonConvert.SerializeObject(authInitRequest), Encoding.UTF8,
                     "application/json");

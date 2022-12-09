@@ -169,7 +169,6 @@ namespace In.ProjectEKA.HipService
                 .AddTransient<IDataFlow, DataFlow.DataFlow>()
                 .AddRouting(options => options.LowercaseUrls = true)
                 .AddHttpContextAccessor()
-                .AddSingleton<HipUrlHelper>()
                 .AddSwaggerGen(c =>
                 {
                     c.SwaggerDoc("v1", new OpenApiInfo

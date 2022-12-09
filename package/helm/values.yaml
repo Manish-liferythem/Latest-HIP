@@ -30,6 +30,7 @@ config:
   RABBITMQ_HOST: "bahmni-dev-rabbitmq"
   RABBITMQ_USERNAME: "bahmni"
   RABBITMQ_PASSWORD: "bahmni"
+  HIP_SERVICE_URL: ""
 
 
 secrets:
