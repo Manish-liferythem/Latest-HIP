@@ -12,6 +12,7 @@ using In.ProjectEKA.HipService.Link.Model;
 using In.ProjectEKA.HipService.OpenMrs;
 using In.ProjectEKA.HipService.UserAuth;
 using In.ProjectEKA.HipService.UserAuth.Model;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Optional.Unsafe;
 using HiType = In.ProjectEKA.HipService.Common.Model.HiType;
@@ -26,21 +27,18 @@ namespace In.ProjectEKA.HipService.Link
         private readonly IUserAuthRepository userAuthRepository;
         private readonly BahmniConfiguration bahmniConfiguration;
         private readonly ILinkPatientRepository linkPatientRepository;
-        private readonly OpenMrsConfiguration openMrsConfiguration;
         private readonly LinkPatient linkPatient;
-        private readonly HipUrlHelper helper;
-
+        private readonly IOptions<HipConfiguration> hipConfiguration;
+        
         public CareContextService(HttpClient httpClient, IUserAuthRepository userAuthRepository,
-            BahmniConfiguration bahmniConfiguration, ILinkPatientRepository linkPatientRepository,
-            OpenMrsConfiguration openMrsConfiguration, LinkPatient linkPatient, HipUrlHelper helper)
+            BahmniConfiguration bahmniConfiguration, ILinkPatientRepository linkPatientRepository, LinkPatient linkPatient, IOptions<HipConfiguration> hipConfiguration)
         {
             this.httpClient = httpClient;
             this.userAuthRepository = userAuthRepository;
             this.bahmniConfiguration = bahmniConfiguration;
             this.linkPatientRepository = linkPatientRepository;
-            this.openMrsConfiguration = openMrsConfiguration;
             this.linkPatient = linkPatient;
-            this.helper = helper;
+            this.hipConfiguration = hipConfiguration;
         }
 
         public async Task<Tuple<GatewayAddContextsRequestRepresentation, ErrorRepresentation>> AddContextsResponse(
@@ -91,7 +89,7 @@ namespace In.ProjectEKA.HipService.Link
             var (healthId, exception) =
                 await linkPatientRepository.GetHealthID(patientReferenceNumber);
             var demographics = (userAuthRepository.GetDemographics(healthId).Result).ValueOrDefault();
-            var request = new HttpRequestMessage(HttpMethod.Post,  helper.getHipUrl() + PATH_DEMOGRAPHICS);
+            var request = new HttpRequestMessage(HttpMethod.Post,  hipConfiguration.Value.Url + PATH_DEMOGRAPHICS);
             request.Content = new StringContent(JsonConvert.SerializeObject(demographics), Encoding.UTF8,
                 "application/json");
             await httpClient.SendAsync(request).ConfigureAwait(false);
@@ -131,7 +129,7 @@ namespace In.ProjectEKA.HipService.Link
         public async Task CallNotifyContext(NewContextRequest newContextRequest, CareContextRepresentation context)
         {
             var request =
-                new HttpRequestMessage(HttpMethod.Get, helper.getHipUrl() + PATH_NOTIFY_CONTEXTS);
+                new HttpRequestMessage(HttpMethod.Get, hipConfiguration.Value.Url + PATH_NOTIFY_CONTEXTS);
             var notifyContext = new NotifyContextRequest(newContextRequest.HealthId,
                 newContextRequest.PatientReferenceNumber,
                 context.ReferenceNumber,
@@ -149,7 +147,7 @@ namespace In.ProjectEKA.HipService.Link
 
         public async Task CallAddContext(NewContextRequest newContextRequest)
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, helper.getHipUrl() + PATH_ADD_CONTEXTS);
+            var request = new HttpRequestMessage(HttpMethod.Post, hipConfiguration.Value.Url + PATH_ADD_CONTEXTS);
             var (accessToken, error) = await userAuthRepository.GetAccessToken(newContextRequest.HealthId);
             var addContextRequest = new AddContextsRequest(
                 accessToken,

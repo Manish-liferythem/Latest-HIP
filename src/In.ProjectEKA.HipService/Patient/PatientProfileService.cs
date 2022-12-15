@@ -12,6 +12,7 @@ using In.ProjectEKA.HipService.OpenMrs;
 using In.ProjectEKA.HipService.Patient.Database;
 using In.ProjectEKA.HipService.Patient.Model;
 using In.ProjectEKA.HipService.UserAuth.Model;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Optional;
 using Optional.Unsafe;
@@ -25,14 +26,14 @@ namespace In.ProjectEKA.HipService.Patient
         private readonly OpenMrsConfiguration _openMrsConfiguration;
         private readonly PatientContext patientContext;
         private readonly HttpClient httpClient;
-        private readonly HipUrlHelper helper;
+        private readonly IOptions<HipConfiguration> hipConfiguration;
 
-        public PatientProfileService(OpenMrsConfiguration openMrsConfiguration, PatientContext patientContext, HttpClient httpClient, HipUrlHelper helper)
+        public PatientProfileService(OpenMrsConfiguration openMrsConfiguration, PatientContext patientContext, HttpClient httpClient, IOptions<HipConfiguration> hipConfiguration)
         {
             this._openMrsConfiguration = openMrsConfiguration;
             this.patientContext = patientContext;
             this.httpClient = httpClient;
-            this.helper = helper;
+            this.hipConfiguration = hipConfiguration;
         }
 
         public async Task<int> SavePatient(ShareProfileRequest shareProfileRequest)
@@ -91,7 +92,7 @@ namespace In.ProjectEKA.HipService.Patient
             var ndhmDemograhics = new NdhmDemographics(patientDemographics.HealthId, patientDemographics.Name,
                 patientDemographics.Gender,
                 dob, patientDemographics.Identifiers[0].Value);
-            var request = new HttpRequestMessage(HttpMethod.Post, helper.getHipUrl() + PATH_DEMOGRAPHICS);
+            var request = new HttpRequestMessage(HttpMethod.Post, hipConfiguration.Value.Url + PATH_DEMOGRAPHICS);
             request.Content = new StringContent(JsonConvert.SerializeObject(ndhmDemograhics), Encoding.UTF8,
                 "application/json");
             await httpClient.SendAsync(request).ConfigureAwait(false);

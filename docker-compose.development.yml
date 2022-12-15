@@ -55,7 +55,6 @@ services:
       hip:url: http://hip:8000
       HEALTH_CHECK_DURATION: 30000
       Cors:allowedOrigins: ${ALLOWED_ORIGIN}
-      Hip-Service:Url: ${HIP_SERVICE_URL}
       Bahmni:Id: ${HIP_ID}
   
 volumes:
