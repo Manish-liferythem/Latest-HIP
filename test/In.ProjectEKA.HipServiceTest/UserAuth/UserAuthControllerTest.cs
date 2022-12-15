@@ -128,7 +128,7 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
             if (userAuthController.GetAuthModes(correlationId, request).Result is JsonResult authMode)
             {
                 Log.Information(authMode.ToString());
-                authMode.Value.Equals(HttpStatusCode.GatewayTimeout);
+                authMode.Value?.Equals(HttpStatusCode.GatewayTimeout);
             }
         }
 
@@ -136,30 +136,11 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
         private void ShouldSendAuthInitAndOnAuthInit()
         {
             var request = new AuthInitRequest("hina_patel@ncg", "MOBILE_OTP", KYC_AND_LINK);
-            var timeStamp = DateTime.Now.ToUniversalTime();
-            var requester = new Requester(bahmniConfiguration.Id, HIP);
-            var query = new AuthInitQuery(request.healthId, KYC_AND_LINK, request.authMode, requester);
-            var requestId = Guid.NewGuid();
-            var cmSuffix = "ncg";
-            var gatewayAuthInitRequestRepresentation =
-                new GatewayAuthInitRequestRepresentation(requestId, timeStamp, query);
             var correlationId = Uuid.Generate().ToString();
-            var transactionId = new Guid().ToString();
-            var auth = new Auth(transactionId, new Meta("string", new DateTime()), Mode.MOBILE_OTP);
-            var authOnInitRequest =
-                new AuthOnInitRequest(requestId, timeStamp, auth, null, new Resp(requestId.ToString()));
-            userAuthService.Setup(a => a.AuthInitResponse(request, bahmniConfiguration))
-                .Returns(new Tuple<GatewayAuthInitRequestRepresentation, ErrorRepresentation>
-                    (gatewayAuthInitRequestRepresentation, null));
-            gatewayClient.Setup(
-                    client =>
-                        client.SendDataToGateway(PATH_AUTH_INIT,
-                            gatewayAuthInitRequestRepresentation, cmSuffix, correlationId))
-                .Callback<string, GatewayAuthInitRequestRepresentation, string, string>
-                ((path, gr, suffix, corId)
-                    => userAuthController.SetTransactionId(authOnInitRequest))
-                .Returns(Task.FromResult(""));
-
+            
+            userAuthService.Setup(a => a.AuthInit(request, correlationId, bahmniConfiguration,gatewayConfiguration))
+                .ReturnsAsync((ErrorRepresentation) null);
+            
             if (userAuthController.GetTransactionId(correlationId, request).Result is OkObjectResult tId)
             {
                 tId.StatusCode.Should().Be(StatusCodes.Status200OK);
@@ -170,28 +151,17 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
         private void ShouldSendAuthInitAndNotOnAuthInit()
         {
             var request = new AuthInitRequest("hina_patel@ncg", "12344", KYC_AND_LINK);
-            var timeStamp = DateTime.Now.ToUniversalTime();
-            var requester = new Requester(bahmniConfiguration.Id, HIP);
-            var query = new AuthInitQuery(request.healthId, KYC_AND_LINK, request.authMode, requester);
-            var requestId = Guid.NewGuid();
-            var cmSuffix = "ncg";
-            var gatewayAuthInitRequestRepresentation =
-                new GatewayAuthInitRequestRepresentation(requestId, timeStamp, query);
             var correlationId = Uuid.Generate().ToString();
+            var error = new ErrorRepresentation(new Error(ErrorCode.GatewayTimedOut, "Gateway timed out"));
 
-            userAuthService.Setup(a => a.AuthInitResponse(request, bahmniConfiguration))
-                .Returns(new Tuple<GatewayAuthInitRequestRepresentation, ErrorRepresentation>
-                    (gatewayAuthInitRequestRepresentation, null));
-            gatewayClient.Setup(
-                    client =>
-                        client.SendDataToGateway(PATH_AUTH_INIT,
-                            gatewayAuthInitRequestRepresentation, cmSuffix, correlationId))
-                .Returns(Task.FromResult(""));
 
+            userAuthService.Setup(a => a.AuthInit(request, correlationId, bahmniConfiguration,gatewayConfiguration))
+                .ReturnsAsync(error);
+            
             if (userAuthController.GetTransactionId(correlationId, request).Result is ObjectResult authMode)
             {
                 Log.Information(authMode.ToString());
-                authMode.StatusCode.Should().Be((int) HttpStatusCode.GatewayTimeout);
+                authMode.Value?.Should().BeEquivalentTo(error);
             }
         }
 
@@ -199,9 +169,6 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
         private async void ShouldSendAuthConfirmAndOnAuthConfirm()
         {
             var authConfirmRequest = new AuthConfirmRequest("123444", "hinapatel@sbx",null);
-            AuthConfirmCredential credential = new AuthConfirmCredential(authConfirmRequest.authCode,null);
-            DateTime timeStamp = DateTime.Now.ToUniversalTime();
-            var transactionId = TestBuilder.Faker().Random.Hash();
             Guid requestId = Guid.NewGuid();
             var address = new AuthConfirmAddress(It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<string>());
@@ -213,53 +180,31 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
                 address, identifiers);
             UserAuthMap.RequestIdToAccessToken.Add(requestId, "12");
             UserAuthMap.RequestIdToPatientDetails.Add(requestId, patient);
-
-            var cmSuffix = "sbx";
-            GatewayAuthConfirmRequestRepresentation gatewayAuthConfirmRequestRepresentation =
-                new GatewayAuthConfirmRequestRepresentation(requestId, timeStamp, transactionId, credential);
             var correlationId = Uuid.Generate().ToString();
 
-            userAuthService.Setup(a => a.AuthConfirmResponse(authConfirmRequest))
-                .Returns(new Tuple<GatewayAuthConfirmRequestRepresentation, ErrorRepresentation>
-                    (gatewayAuthConfirmRequestRepresentation, null));
-            gatewayClient.Setup(
-                    client =>
-                        client.SendDataToGateway(PATH_AUTH_CONFIRM,
-                            gatewayAuthConfirmRequestRepresentation, cmSuffix, correlationId))
-                .Returns(Task.FromResult(""));
+            userAuthService.Setup(a => a.AuthConfirm(authConfirmRequest, correlationId,gatewayConfiguration))
+                .ReturnsAsync(new Tuple<AuthConfirmResponse, ErrorRepresentation>(new AuthConfirmResponse(patient),null));
 
             var response =
                 await userAuthController.GetAccessToken(correlationId, authConfirmRequest) as ObjectResult;
-            response.StatusCode.Should().Be(StatusCodes.Status202Accepted);
-            response.Value.Should().BeEquivalentTo(new AuthConfirmResponse(patient));
+            response?.StatusCode.Should().Be(StatusCodes.Status202Accepted);
+            response?.Value.Should().BeEquivalentTo(new AuthConfirmResponse(patient));
         }
 
         [Fact]
         private void ShouldSendAuthConfirmAndNotOnAuthConfirm()
         {
             var authConfirmRequest = new AuthConfirmRequest("123444", "hinapatel@sbx",null);
-            AuthConfirmCredential credential = new AuthConfirmCredential(authConfirmRequest.authCode,null);
-            DateTime timeStamp = DateTime.Now.ToUniversalTime();
-            var transactionId = TestBuilder.Faker().Random.Hash();
-            Guid requestId = Guid.NewGuid();
-            var cmSuffix = "ncg";
-            GatewayAuthConfirmRequestRepresentation gatewayAuthConfirmRequestRepresentation =
-                new GatewayAuthConfirmRequestRepresentation(requestId, timeStamp, transactionId, credential);
             var correlationId = Uuid.Generate().ToString();
-
-            userAuthService.Setup(a => a.AuthConfirmResponse(authConfirmRequest))
-                .Returns(new Tuple<GatewayAuthConfirmRequestRepresentation, ErrorRepresentation>
-                    (gatewayAuthConfirmRequestRepresentation, null));
-            gatewayClient.Setup(
-                    client =>
-                        client.SendDataToGateway(PATH_AUTH_CONFIRM,
-                            gatewayAuthConfirmRequestRepresentation, cmSuffix, correlationId))
-                .Returns(Task.FromResult(""));
+            var error = new ErrorRepresentation(new Error(ErrorCode.GatewayTimedOut, "Gateway timed out"));
+            
+            userAuthService.Setup(a => a.AuthConfirm(authConfirmRequest, correlationId,gatewayConfiguration))
+                .ReturnsAsync(new Tuple<AuthConfirmResponse, ErrorRepresentation>(null,error));
 
             if (userAuthController.GetAccessToken(correlationId, authConfirmRequest).Result is ObjectResult authMode)
             {
                 Log.Information(authMode.ToString());
-                authMode.StatusCode.Should().Be((int) HttpStatusCode.GatewayTimeout);
+                authMode.Value?.Should().BeEquivalentTo(error);
             }
         }
 
@@ -277,7 +222,7 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
             if (userAuthController.GetAuthModes(correlationId, request).Result is JsonResult authMode)
             {
                 Log.Information(authMode.ToString());
-                authMode.Value.Equals(StatusCodes.Status400BadRequest);
+                authMode.Value?.Should().Be(StatusCodes.Status400BadRequest);
             }
         }
 
@@ -287,15 +232,14 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
             var request = new AuthInitRequest("invalidHealthId", "12344", KYC_AND_LINK);
             var error = new ErrorRepresentation(new Error(ErrorCode.InvalidHealthId, "Invalid HealthId"));
             var correlationId = Uuid.Generate().ToString();
-
-            userAuthService.Setup(a => a.AuthInitResponse(request, bahmniConfiguration))
-                .Returns(new Tuple<GatewayAuthInitRequestRepresentation, ErrorRepresentation>
-                    (null, error));
-
+            
+            userAuthService.Setup(a => a.AuthInit(request, correlationId, bahmniConfiguration,gatewayConfiguration))
+                .ReturnsAsync(error);
+            
             if (userAuthController.GetTransactionId(correlationId, request).Result is ObjectResult authMode)
             {
-                Log.Information(authMode.ToString());
-                authMode.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+                authMode.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+                authMode.Value?.Should().BeEquivalentTo(error);
             }
         }
 
@@ -312,21 +256,15 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
             GatewayAuthConfirmRequestRepresentation gatewayAuthConfirmRequestRepresentation =
                 new GatewayAuthConfirmRequestRepresentation(requestId, timeStamp, transactionId, credential);
             var correlationId = Uuid.Generate().ToString();
-
-            userAuthService.Setup(a => a.AuthConfirmResponse(authConfirmRequest))
-                .Returns(new Tuple<GatewayAuthConfirmRequestRepresentation, ErrorRepresentation>
-                    (gatewayAuthConfirmRequestRepresentation, null));
-            gatewayClient.Setup(
-                    client =>
-                        client.SendDataToGateway(PATH_AUTH_CONFIRM,
-                            gatewayAuthConfirmRequestRepresentation, gatewayConfiguration.CmSuffix, correlationId))
-                .Returns(Task.FromResult(""));
+            
+            userAuthService.Setup(a => a.AuthConfirm(authConfirmRequest, correlationId,gatewayConfiguration))
+                .ReturnsAsync(new Tuple<AuthConfirmResponse, ErrorRepresentation>(null,new ErrorRepresentation(error)));
 
             var response =
                 await userAuthController.GetAccessToken(correlationId, authConfirmRequest) as ObjectResult;
             if (response != null)
             {
-                response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+                response.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
                 response.Value.Should().BeEquivalentTo(new ErrorRepresentation(error));
             }
         }
@@ -335,31 +273,15 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
         private async void ShouldReturnGatewayErrorForAuthInit()
         {
             var request = new AuthInitRequest("hina_patel@ncg", "MOBILE_OTP", KYC_AND_LINK);
-            var timeStamp = DateTime.Now.ToUniversalTime();
-            var requester = new Requester(bahmniConfiguration.Id, HIP);
-            var query = new AuthInitQuery(request.healthId, KYC_AND_LINK, request.authMode, requester);
             var requestId = Guid.NewGuid();
-            var gatewayAuthInitRequestRepresentation =
-                new GatewayAuthInitRequestRepresentation(requestId, timeStamp, query);
             var correlationId = Uuid.Generate().ToString();
             Error error = new Error(ErrorCode.GatewayTimedOut, "Timeout Error");
             UserAuthMap.RequestIdToErrorMessage.Add(requestId, error);
-
-            userAuthService.Setup(a => a.AuthInitResponse(request, bahmniConfiguration))
-                .Returns(new Tuple<GatewayAuthInitRequestRepresentation, ErrorRepresentation>
-                    (gatewayAuthInitRequestRepresentation, null));
-            gatewayClient.Setup(
-                    client =>
-                        client.SendDataToGateway(PATH_AUTH_INIT,
-                            gatewayAuthInitRequestRepresentation, gatewayConfiguration.CmSuffix, correlationId))
-                .Returns(Task.FromResult(""));
-
+            userAuthService.Setup(a => a.AuthInit(request, correlationId, bahmniConfiguration,gatewayConfiguration))
+                .ReturnsAsync(new ErrorRepresentation(error));
+            
             var response = await userAuthController.GetTransactionId(correlationId, request) as ObjectResult;
-            if (response != null)
-            {
-                response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
-                response.Value.Should().BeEquivalentTo(new ErrorRepresentation(error));
-            }
+            response?.Value.Should().BeEquivalentTo(new ErrorRepresentation(error));
         }
 
         [Fact]
@@ -386,12 +308,8 @@ namespace In.ProjectEKA.HipServiceTest.UserAuth
                 .Returns(Task.CompletedTask);
 
             var response = await userAuthController.GetAuthModes(correlationId, request) as ObjectResult;
-
-            if (response != null)
-            {
-                response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
-                response.Value.Should().BeEquivalentTo(new ErrorRepresentation(error));
-            }
+            response?.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+            response?.Value.Should().BeEquivalentTo(new ErrorRepresentation(error));
         }
     }
 }
