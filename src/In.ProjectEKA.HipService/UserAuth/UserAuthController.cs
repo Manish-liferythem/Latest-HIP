@@ -14,7 +14,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Serilog;
 using static In.ProjectEKA.HipService.UserAuth.UserAuthMap;
+using Identifier = In.ProjectEKA.HipService.UserAuth.Model.Identifier;
 
 namespace In.ProjectEKA.HipService.UserAuth
 {
@@ -173,67 +175,12 @@ namespace In.ProjectEKA.HipService.UserAuth
                 }
             }
 
-            var (gatewayAuthInitRequestRepresentation, error) =
-                userAuthService.AuthInitResponse(authInitRequest, bahmniConfiguration);
-            if (error != null)
-                return StatusCode(StatusCodes.Status400BadRequest, error);
-            Guid requestId = gatewayAuthInitRequestRepresentation.requestId;
-            var cmSuffix = gatewayConfiguration.CmSuffix;
-
-            try
-            {
-                logger.Log(LogLevel.Information,
-                    LogEvents.UserAuth,
-                    "Request for auth-init to gateway: {@GatewayResponse}",
-                    gatewayAuthInitRequestRepresentation.dump(gatewayAuthInitRequestRepresentation));
-                logger.Log(LogLevel.Information, LogEvents.UserAuth, $"cmSuffix: {{cmSuffix}}," +
-                                                                     $" correlationId: {{correlationId}}, " +
-                                                                     $"healthId: {{healthId}}, requestId: {{requestId}}",
-                    cmSuffix, correlationId, gatewayAuthInitRequestRepresentation.query.id, requestId);
-                await gatewayClient.SendDataToGateway(PATH_AUTH_INIT, gatewayAuthInitRequestRepresentation, cmSuffix,
-                    correlationId);
-                var i = 0;
-                do
-                {
-                    Thread.Sleep(gatewayConfiguration.TimeOut);
-                    if (RequestIdToErrorMessage.ContainsKey(requestId))
-                    {
-                        var gatewayError = RequestIdToErrorMessage[requestId];
-                        RequestIdToErrorMessage.Remove(requestId);
-                        return StatusCode(StatusCodes.Status400BadRequest,
-                            new ErrorRepresentation(gatewayError));
-                    }
-
-                    if (RequestIdToTransactionIdMap.ContainsKey(requestId))
-                    {
-                        logger.LogInformation(LogEvents.UserAuth,
-                            "Response about to be send for requestId: {RequestId} with transactionId: {TransactionId}",
-                            requestId, RequestIdToTransactionIdMap[requestId]
-                        );
-                        if (HealthIdToTransactionId.ContainsKey(authInitRequest.healthId))
-                        {
-                            HealthIdToTransactionId[authInitRequest.healthId] = RequestIdToTransactionIdMap[requestId];
-                        }
-                        else
-                        {
-                            HealthIdToTransactionId.Add(authInitRequest.healthId,
-                                RequestIdToTransactionIdMap[requestId]);
-                        }
-
-                        return Accepted();
-                    }
-
-                    i++;
-                } while (i < gatewayConfiguration.Counter);
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(LogEvents.UserAuth, exception, "Error happened for requestId: {RequestId} for" +
-                                                               " auth-init request", requestId);
-            }
-
-            return StatusCode(StatusCodes.Status504GatewayTimeout,
-                new ErrorRepresentation(new Error(ErrorCode.GatewayTimedOut, "Gateway timed out")));
+            var error =
+                await userAuthService.AuthInit(authInitRequest, correlationId, bahmniConfiguration,gatewayConfiguration);
+            if (error == null) return Accepted();
+            Log.Information($" Error Code:{error.Error.Code}," +
+                            $" Error Message:{error.Error.Message}");
+            return StatusCode(StatusCodes.Status500InternalServerError, error);
         }
 
         [Authorize]
@@ -283,59 +230,13 @@ namespace In.ProjectEKA.HipService.UserAuth
                     return StatusCode(StatusCodes.Status401Unauthorized);
                 }
             }
-
-            var (gatewayAuthConfirmRequestRepresentation, error) =
-                userAuthService.AuthConfirmResponse(authConfirmRequest);
-            if (error != null)
-                return StatusCode(StatusCodes.Status400BadRequest, error);
-            var requestId = gatewayAuthConfirmRequestRepresentation.requestId;
-            var cmSuffix = gatewayConfiguration.CmSuffix;
-
-            try
-            {
-                logger.Log(LogLevel.Information,
-                    LogEvents.UserAuth,
-                    "Request for auth-confirm to gateway: {@GatewayResponse}",
-                    gatewayAuthConfirmRequestRepresentation.dump(gatewayAuthConfirmRequestRepresentation));
-                logger.Log(LogLevel.Information,
-                    LogEvents.UserAuth, $" : {{cmSuffix}}, correlationId: {{correlationId}}," +
-                                        $" authCode: {{authCode}}, transactionId: {{transactionId}} requestId: {{requestId}}",
-                    cmSuffix, correlationId, gatewayAuthConfirmRequestRepresentation.credential.authCode,
-                    gatewayAuthConfirmRequestRepresentation.transactionId, requestId);
-                await gatewayClient.SendDataToGateway(PATH_AUTH_CONFIRM, gatewayAuthConfirmRequestRepresentation
-                    , cmSuffix, correlationId);
-                var i = 0;
-                do
-                {
-                    Thread.Sleep(gatewayConfiguration.TimeOut + 8000);
-                    if (RequestIdToErrorMessage.ContainsKey(requestId))
-                    {
-                        var gatewayError = RequestIdToErrorMessage[requestId];
-                        RequestIdToErrorMessage.Remove(requestId);
-                        return StatusCode(StatusCodes.Status400BadRequest,
-                            new ErrorRepresentation(gatewayError));
-                    }
-
-                    if (RequestIdToAccessToken.ContainsKey(requestId) &&
-                        RequestIdToPatientDetails.ContainsKey(requestId))
-                    {
-                        logger.LogInformation(LogEvents.UserAuth,
-                            "Response about to be send for requestId: {RequestId} with accessToken: {AccessToken}",
-                            requestId, RequestIdToAccessToken[requestId]
-                        );
-                        return Accepted(new AuthConfirmResponse(RequestIdToPatientDetails[requestId]));
-                    }
-
-                    i++;
-                } while (i < gatewayConfiguration.Counter);
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(LogEvents.UserAuth, exception, "Error happened for requestId: {RequestId}", requestId);
-            }
-
-            return StatusCode(StatusCodes.Status504GatewayTimeout,
-                new ErrorRepresentation(new Error(ErrorCode.GatewayTimedOut, "Gateway timed out")));
+            
+            var (authConfirm, error) =
+                await userAuthService.AuthConfirm(authConfirmRequest, correlationId,gatewayConfiguration);
+            if (error == null) return Accepted(authConfirm);
+            Log.Information($" Error Code:{error.Error.Code}," +
+                            $" Error Message:{error.Error.Message}");
+            return StatusCode(StatusCodes.Status500InternalServerError,error);
         }
 
         [Authorize]
@@ -395,10 +296,21 @@ namespace In.ProjectEKA.HipService.UserAuth
         }
 
         [Route(PATH_DEMOGRAPHICS)]
-        public async Task DemographicAuth([FromBody] NdhmDemographics ndhmDemographics)
+        public async Task<ActionResult> DemographicAuth([FromBody] NdhmDemographics ndhmDemographics)
         {
-            await userAuthService.CallAuthInit(ndhmDemographics.HealthId);
-            await userAuthService.CallAuthConfirm(ndhmDemographics);
+            var authInitRequest = new AuthInitRequest(ndhmDemographics.HealthId, "DEMOGRAPHICS", "KYC_AND_LINK");
+            
+            var initError = await userAuthService.AuthInit(authInitRequest, null, bahmniConfiguration,gatewayConfiguration);
+            if (initError != null)
+                return StatusCode(StatusCodes.Status500InternalServerError, initError);
+            
+            var identifier = new Identifier(MOBILE, ndhmDemographics.PhoneNumber);
+            var demographics = new Demographics(ndhmDemographics.Name, ndhmDemographics.Gender,
+                ndhmDemographics.DateOfBirth, identifier);
+            var authConfirmRequest = new AuthConfirmRequest(null, ndhmDemographics.HealthId, demographics);
+            
+            var (authConfirm, confirmError) = await userAuthService.AuthConfirm(authConfirmRequest, null ,gatewayConfiguration);
+            return confirmError != null ? StatusCode(StatusCodes.Status500InternalServerError,confirmError) : Accepted(authConfirm);
         }
     }
 }

@@ -1,24 +1,20 @@
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using In.ProjectEKA.HipLibrary.Patient.Model;
 using In.ProjectEKA.HipService.Common;
 using In.ProjectEKA.HipService.Common.Model;
 using In.ProjectEKA.HipService.DataFlow;
-using In.ProjectEKA.HipService.Logger;
-using In.ProjectEKA.HipService.OpenMrs;
+using In.ProjectEKA.HipService.Gateway;
 using In.ProjectEKA.HipService.UserAuth.Model;
-using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 using Optional;
-using Optional.Unsafe;
 using static In.ProjectEKA.HipService.Common.Constants;
 using Error = In.ProjectEKA.HipLibrary.Patient.Model.Error;
-using HttpMethod = System.Net.Http.HttpMethod;
-using Identifier = In.ProjectEKA.HipService.UserAuth.Model.Identifier;
 
 
 namespace In.ProjectEKA.HipService.UserAuth
@@ -26,15 +22,19 @@ namespace In.ProjectEKA.HipService.UserAuth
     public class UserAuthService : IUserAuthService
     {
         private readonly IUserAuthRepository userAuthRepository;
-        private readonly HttpClient httpClient;
-        private readonly HipUrlHelper helper;
+        private readonly ILogger<UserAuthController> logger;
+        private readonly IGatewayClient gatewayClient;
 
-        public UserAuthService(IUserAuthRepository userAuthRepository, HttpClient httpClient, HipUrlHelper helper)
+
+        public UserAuthService(IUserAuthRepository userAuthRepository, ILogger<UserAuthController> logger, IGatewayClient gatewayClient)
         {
             this.userAuthRepository = userAuthRepository;
-            this.httpClient = httpClient;
-            this.helper = helper;
+            this.logger = logger;
+            this.gatewayClient = gatewayClient;
         }
+        
+
+       
         public Tuple<GatewayFetchModesRequestRepresentation, ErrorRepresentation> FetchModeResponse(
             FetchRequest fetchRequest, BahmniConfiguration bahmniConfiguration)
         {
@@ -57,8 +57,68 @@ namespace In.ProjectEKA.HipService.UserAuth
             return new Tuple<GatewayFetchModesRequestRepresentation, ErrorRepresentation>
                 (new GatewayFetchModesRequestRepresentation(requestId, timeStamp, query), null);
         }
+        
+        public async Task<ErrorRepresentation> AuthInit(AuthInitRequest authInitRequest,string correlationId,BahmniConfiguration bahmniConfiguration,GatewayConfiguration gatewayConfiguration)
+        {
+            var (gatewayAuthInitRequestRepresentation, error) = AuthInitResponse(authInitRequest, bahmniConfiguration);
+            if (error != null)
+                return error;
+            Guid requestId = gatewayAuthInitRequestRepresentation.requestId;
+            var cmSuffix = gatewayConfiguration.CmSuffix;
 
-        public Tuple<GatewayAuthInitRequestRepresentation, ErrorRepresentation> AuthInitResponse(
+            try
+            {
+                logger.Log(LogLevel.Information,
+                    LogEvents.UserAuth,
+                    "Request for auth-init to gateway: {@GatewayResponse}",
+                    gatewayAuthInitRequestRepresentation.dump(gatewayAuthInitRequestRepresentation));
+                logger.Log(LogLevel.Information, LogEvents.UserAuth, $"cmSuffix: {{cmSuffix}}," +
+                                                                     $" correlationId: {{correlationId}}, " +
+                                                                     $"healthId: {{healthId}}, requestId: {{requestId}}",
+                    cmSuffix, correlationId, gatewayAuthInitRequestRepresentation.query.id, requestId);
+                await gatewayClient.SendDataToGateway(PATH_AUTH_INIT, gatewayAuthInitRequestRepresentation, cmSuffix,
+                    correlationId);
+                var i = 0;
+                do
+                {
+                    Thread.Sleep(gatewayConfiguration.TimeOut);
+                    if (UserAuthMap.RequestIdToErrorMessage.ContainsKey(requestId))
+                    {
+                        var gatewayError = UserAuthMap.RequestIdToErrorMessage[requestId];
+                        UserAuthMap.RequestIdToErrorMessage.Remove(requestId);
+                        return new ErrorRepresentation(gatewayError);
+                    }
+
+                    if (UserAuthMap.RequestIdToTransactionIdMap.ContainsKey(requestId))
+                    {
+                        logger.LogInformation(LogEvents.UserAuth,
+                            "Response about to be send for requestId: {RequestId} with transactionId: {TransactionId}",
+                            requestId, UserAuthMap.RequestIdToTransactionIdMap[requestId]
+                        );
+                        if (UserAuthMap.HealthIdToTransactionId.ContainsKey(authInitRequest.healthId))
+                        {
+                            UserAuthMap.HealthIdToTransactionId[authInitRequest.healthId] = UserAuthMap.RequestIdToTransactionIdMap[requestId];
+                        }
+                        else
+                        {
+                            UserAuthMap.HealthIdToTransactionId.Add(authInitRequest.healthId,
+                                UserAuthMap.RequestIdToTransactionIdMap[requestId]);
+                        }
+                        return null;
+                    }
+
+                    i++;
+                } while (i < gatewayConfiguration.Counter);
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(LogEvents.UserAuth, exception, "Error happened for requestId: {RequestId} for" +
+                                                               " auth-init request", requestId);
+            }
+            return new ErrorRepresentation(new Error(ErrorCode.GatewayTimedOut, "Gateway timed out"));
+        }
+
+        private Tuple<GatewayAuthInitRequestRepresentation, ErrorRepresentation> AuthInitResponse(
             AuthInitRequest authInitRequest, BahmniConfiguration bahmniConfiguration)
         {
             var healthId = authInitRequest.healthId;
@@ -80,8 +140,62 @@ namespace In.ProjectEKA.HipService.UserAuth
             return new Tuple<GatewayAuthInitRequestRepresentation, ErrorRepresentation>
                 (new GatewayAuthInitRequestRepresentation(requestId, timeStamp, authInitQuery), null);
         }
+        
+         public async Task<Tuple<AuthConfirmResponse, ErrorRepresentation>> AuthConfirm(AuthConfirmRequest authConfirmRequest,string correlationId,GatewayConfiguration gatewayConfiguration)
+        {
+            var (gatewayAuthConfirmRequestRepresentation, error) = AuthConfirmResponse(authConfirmRequest);
+            if (error != null)
+                return new Tuple<AuthConfirmResponse, ErrorRepresentation>(null, new ErrorRepresentation(new Error(ErrorCode.BadRequest,error.Error.Message)));
+            var requestId = gatewayAuthConfirmRequestRepresentation.requestId;
+            var cmSuffix = gatewayConfiguration.CmSuffix;
 
-        public Tuple<GatewayAuthConfirmRequestRepresentation, ErrorRepresentation> AuthConfirmResponse(
+            try
+            {
+                logger.Log(LogLevel.Information,
+                    LogEvents.UserAuth,
+                    "Request for auth-confirm to gateway: {@GatewayResponse}",
+                    gatewayAuthConfirmRequestRepresentation.dump(gatewayAuthConfirmRequestRepresentation));
+                logger.Log(LogLevel.Information,
+                    LogEvents.UserAuth, $" : {{cmSuffix}}, correlationId: {{correlationId}}," +
+                                        $" authCode: {{authCode}}, transactionId: {{transactionId}} requestId: {{requestId}}",
+                    cmSuffix, correlationId, gatewayAuthConfirmRequestRepresentation.credential.authCode,
+                    gatewayAuthConfirmRequestRepresentation.transactionId, requestId);
+                await gatewayClient.SendDataToGateway(PATH_AUTH_CONFIRM, gatewayAuthConfirmRequestRepresentation
+                    , cmSuffix, correlationId);
+                var i = 0;
+                do
+                {
+                    Thread.Sleep(gatewayConfiguration.TimeOut + 8000);
+                    if (UserAuthMap.RequestIdToErrorMessage.ContainsKey(requestId))
+                    {
+                        var gatewayError = UserAuthMap.RequestIdToErrorMessage[requestId];
+                        UserAuthMap.RequestIdToErrorMessage.Remove(requestId);
+                        return new Tuple<AuthConfirmResponse, ErrorRepresentation>(null, new ErrorRepresentation(gatewayError));
+                    }
+
+                    if (UserAuthMap.RequestIdToAccessToken.ContainsKey(requestId) &&
+                        UserAuthMap.RequestIdToPatientDetails.ContainsKey(requestId))
+                    {
+                        logger.LogInformation(LogEvents.UserAuth,
+                            "Response about to be send for requestId: {RequestId} with accessToken: {AccessToken}",
+                            requestId, UserAuthMap.RequestIdToAccessToken[requestId]
+                        );
+                        return new Tuple<AuthConfirmResponse, ErrorRepresentation>(new AuthConfirmResponse(UserAuthMap.RequestIdToPatientDetails[requestId]), null);
+                    }
+
+                    i++;
+                } while (i < gatewayConfiguration.Counter);
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(LogEvents.UserAuth, exception, "Error happened for requestId: {RequestId}", requestId);
+            }
+
+            return new Tuple<AuthConfirmResponse, ErrorRepresentation>(null, new ErrorRepresentation(new Error(ErrorCode.GatewayTimedOut, "Gateway timed out")));
+
+        }
+
+        private Tuple<GatewayAuthConfirmRequestRepresentation, ErrorRepresentation> AuthConfirmResponse(
             AuthConfirmRequest authConfirmRequest)
         {
             var healthId = authConfirmRequest.healthId;
@@ -178,39 +292,5 @@ namespace In.ProjectEKA.HipService.UserAuth
             await userAuthRepository.AddDemographics(ndhmDemographics).ConfigureAwait(false);
         }
 
-        public async Task CallAuthConfirm(NdhmDemographics ndhmDemographics)
-        {
-            try
-            {
-                var request = new HttpRequestMessage(HttpMethod.Post, helper.getHipUrl() + PATH_HIP_AUTH_CONFIRM);
-                var identifier = new Identifier(MOBILE, ndhmDemographics.PhoneNumber);
-                var demographics = new Demographics(ndhmDemographics.Name, ndhmDemographics.Gender,
-                    ndhmDemographics.DateOfBirth, identifier);
-                var authConfirmRequest = new AuthConfirmRequest(null, ndhmDemographics.HealthId, demographics);
-                request.Content = new StringContent(JsonConvert.SerializeObject(authConfirmRequest),
-                    Encoding.UTF8, "application/json");
-                await httpClient.SendAsync(request).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                // ignored
-            }
-        }
-        
-        public async Task CallAuthInit(string healthId)
-        {
-            try
-            {
-                var request = new HttpRequestMessage(HttpMethod.Post, helper.getHipUrl() + PATH_HIP_AUTH_INIT);
-                var authInitRequest = new AuthInitRequest(healthId, "DEMOGRAPHICS", "KYC_AND_LINK");
-                request.Content = new StringContent(JsonConvert.SerializeObject(authInitRequest), Encoding.UTF8,
-                    "application/json");
-                await httpClient.SendAsync(request).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                // ignored
-            }
-        }
     }
 }

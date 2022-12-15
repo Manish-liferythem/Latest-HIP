@@ -11,18 +11,19 @@ namespace In.ProjectEKA.HipService.UserAuth
     {
         public Tuple<GatewayFetchModesRequestRepresentation, ErrorRepresentation> FetchModeResponse(
             FetchRequest fetchRequest, BahmniConfiguration bahmniConfiguration);
+        
+        public Task<ErrorRepresentation> AuthInit(AuthInitRequest authInitRequest, string correlationId,
+            BahmniConfiguration bahmniConfiguration, GatewayConfiguration gatewayConfiguration);
 
-        public Tuple<GatewayAuthInitRequestRepresentation, ErrorRepresentation> AuthInitResponse(
-            AuthInitRequest authInitRequest, BahmniConfiguration bahmniConfiguration);
+        public Task<Tuple<AuthConfirmResponse, ErrorRepresentation>> AuthConfirm(AuthConfirmRequest authConfirmRequest,
+            string correlationId, GatewayConfiguration gatewayConfiguration);
 
-        public Tuple<GatewayAuthConfirmRequestRepresentation, ErrorRepresentation> AuthConfirmResponse(
-            AuthConfirmRequest authConfirmRequest);
-
+        
         public Task<Tuple<AuthConfirm, ErrorRepresentation>> OnAuthConfirmResponse(
             OnAuthConfirmRequest onAuthConfirmRequest);
 
         public Task Dump(NdhmDemographics ndhmDemographics);
-        public Task CallAuthConfirm(NdhmDemographics ndhmDemographics);
-        public Task CallAuthInit(string healthId);
+
+     
     }
 }
